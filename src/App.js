@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot ,Upload,CheckCircle} from 'lucide-react';
+// Note: Ensure 'lucide-react' is installed: npm install lucide-react
+import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot, Upload, CheckCircle } from 'lucide-react';
 
-// The rest of the code I gave you starts here...
 export default function GovAssistant() {
   const [messages, setMessages] = useState([
     { 
@@ -13,7 +13,108 @@ export default function GovAssistant() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [eligibilityMode, setEligibilityMode] = useState({ active: false, scheme: '', step: 0, data: {} });
+  const [language, setLanguage] = useState('english');
   const scrollRef = useRef(null);
+
+  // Translations object
+  const translations = {
+    english: {
+      welcome: 'Namaste! I am your Citizen Assistant. I can help you find government services, check eligibility for schemes, or list required documents. What can I do for you?',
+      reset: 'Session reset. All temporary data cleared. How can I help you start fresh?',
+      passportText: 'To apply for a fresh Passport, you must register at the Passport Seva Portal. Here are the mandatory documents:',
+      aadhaarText: 'To apply for an Aadhaar card, visit the UIDAI website or an enrolment center. Here are the required documents:',
+      panText: 'To apply for a PAN card, use the NSDL or UTIITSL portal. Here are the required documents:',
+      drivingText: 'To get a driving license, apply through the Parivahan Sewa portal. Here are the required documents:',
+      schemeText: 'I can help with government schemes. Visit https://www.india.gov.in/my-government/schemes/search to search for schemes and check eligibility. Here are some popular ones:',
+      pmkisanText: 'PM-Kisan provides income support to farmers. Eligibility: Small and marginal farmers with landholding. Visit https://www.india.gov.in/my-government/schemes/search for details.',
+      pmayText: 'PMAY aims to provide affordable housing. Eligibility: Low and middle-income families. Visit https://www.india.gov.in/my-government/schemes/search for details.',
+      ayushmanText: 'Ayushman Bharat provides health coverage. Eligibility: Families below poverty line. Visit https://www.india.gov.in/my-government/schemes/search for details.',
+      eligibilityStart: 'To check your eligibility for {scheme}, please provide your name.',
+      eligibilityAge: 'Please provide your age.',
+      eligibilityLocation: 'Please provide your location (city/state).',
+      eligibilityIncome: 'Please provide your annual income (in rupees).',
+      eligible: 'Based on the information provided (Name: {name}, Age: {age}, Location: {location}, Income: {income}), you appear eligible for {scheme}. Please visit the official portal for final confirmation.',
+      notEligible: 'Based on the information provided, you may not be eligible for {scheme}. {reason} Please check the official website for details.',
+      default: "I'm looking into that. Could you please specify your state or the specific department?",
+      docsTitle: 'Required Documentation',
+      schemesTitle: 'Government Schemes',
+      checkEligibility: 'Check Eligibility',
+      dataPrivacy: 'Data Privacy Protected',
+      officialLinks: 'Official Portal Links Only'
+    },
+    hindi: {
+      welcome: 'नमस्ते! मैं आपका नागरिक सहायक हूँ। मैं सरकारी सेवाओं को खोजने, योजनाओं के लिए पात्रता जांचने, या अवसरमैन दस्तावेजों की सूची बनाने में मदद कर सकता हूँ। मैं आपकी क्या मदद कर सकता हूँ?',
+      reset: 'सत्र रीसेट। सभी अस्थायी डेटा साफ़ किए गए। मैं नए सिरे से कैसे मदद कर सकता हूँ?',
+      passportText: 'एक नए पासपोर्ट के लिए आवेदन करने के लिए, आपको पासपोर्ट सेवा पोर्टल पर पंजीकरण करना होगा। इक्कड़ अनिवार्य दस्तावेज हैं:',
+      aadhaarText: 'आधार कार्ड के लिए आवेदन करने के लिए, UIDAI वेबसाइट या नामांकन केंद्र पर जाएँ। इक्कड़ अवसरमैन दस्तावेज हैं:',
+      panText: 'PAN कार्ड के लिए आवेदन करने के लिए, NSDL या UTIITSL पोर्टल का उपयोग करें। इक्कड़ अवसरमैन दस्तावेज हैं:',
+      drivingText: 'ड्राइविंग लाइसेन्स प्राप्त करने के लिए, परिवहन सेवा पोर्टल के माध्यम से आवेदन करें। इक्कड़ अवसरमैन दस्तावेज हैं:',
+      schemeText: 'मैं सरकारी योजनाओं में मदद कर सकता हूँ। योजनाओं की खोज और पात्रता जांच के लिए https://www.india.gov.in/my-government/schemes/search पर जाएँ। इक्कड़ कुछ लोकप्रिय हैं:',
+      pmkisanText: 'PM-Kisan किसानों को आदाय सहायता प्रदान करता है। पात्रता: छोटे और सीमांत किसान जिनके पास भूमि है। विवरण के लिए https://www.india.gov.in/my-government/schemes/search पर जाएँ।',
+      pmayText: 'PMAY किफायती आवास प्रदान करने का उद्देश्य रखता है। पात्रता: कम और मध्यम आय परिवार। विवरण के लिए https://www.india.gov.in/my-government/schemes/search पर जाएँ।',
+      ayushmanText: 'आयुष्मान भारत स्वास्थ्य कवरेज प्रदान करता है। पात्रता: गरीबी रेखा से नीचे परिवार। विवरण के लिए https://www.india.gov.in/my-government/schemes/search पर जाएँ।',
+      eligibilityStart: '{scheme} के लिए अपनी पात्रता जांचने के लिए, कृपया अपना नाम प्रदान करें।',
+      eligibilityAge: 'कृपया अपनी आयु प्रदान करें।',
+      eligibilityLocation: 'कृपया अपना स्थान (शहर/राज्य) प्रदान करें।',
+      eligibilityIncome: 'कृपया अपनी वार्षिक आय (रुपये में) प्रदान करें।',
+      eligible: 'प्रदान की गई जानकारी के आधार पर (नाम: {name}, आयु: {age}, स्थान: {location}, आय: {income}), आप {scheme} के लिए पात्र प्रतीत होते हैं। कृपया अंतिम पुष्टि के लिए आधिकारिक पोर्टल पर जाएँ।',
+      notEligible: 'प्रदान की गई जानकारी के आधार पर, आप {scheme} के लिए पात्र नहीं हो सकते। {reason} कृपया आधिकारिक वेबसाइट पर जांच करें।',
+      default: 'मैं उस पर विचार कर रहा हूँ। कृपया अपना राज्य या निर्दिष्ट विभाग निर्दिष्ट करें?',
+      docsTitle: 'आवश्यक दस्तावेजीकरण',
+      schemesTitle: 'सरकारी योजनाएँ',
+      checkEligibility: 'पात्रता जांचें',
+      dataPrivacy: 'डेटा गोपनीयता संरक्षित',
+      officialLinks: 'केवल आधिकारिक पोर्टल लिंक'
+    },
+    telugu: {
+      welcome: 'నమస్కారం! నేను మీ నాగరిక సహాయకుడు. నేను ప్రభుత్వ సేవలను కనుగొనడం, పథకాల కోసం అర్హతను తనిఖీ చేయడం లేదా అవసరమైన పత్రాల జాబితాను చేయడంలో సహాయం చేయగలను. నేను మీకు ఏమి సహాయం చేయగలను?',
+      reset: 'సెషన్ రీసెట్. అన్ని తాత్కాలిక డేటా తొలగించబడింది. నేను కొత్తగా ఎలా సహాయం చేయగలను?',
+      passportText: 'కొత్త పాస్‌పోర్ట్‌గె అర్జి సల్లిసలు, నీవు పాస్‌పోర్ట్ సేవా పోర్టల్‌నల్లి నోందణి మాడబేకు. ఇల్లి కడ్డాయ దాఖలెగివె:',
+      aadhaarText: 'ఆధార్ కార్డ్‌గె అర్జి సల్లిసలు, UIDAI వెబ్‌సైట్ అథవా నోందణి కేంద్రానికి భేటి నీడి. ఇల్లి అగత్య దాఖలెగివె:',
+      panText: 'PAN కార్డ్‌గె అర్జి సల్లిసలు, NSDL అథవా UTIITSL పోర్టల్ అన్ను బళసి. ఇల్లి అగత్య దాఖలెగివె:',
+      drivingText: 'డ్రైవింగ్ లైసెన్స్ పడెయలు, పరివహణ సేవా పోర్టల్ మూలక అర్జి సల్లిసి. ఇల్లి అగత్య దాఖలెగివె:',
+      schemeText: 'నేను ప్రభుత్వ పథకాలలో సహాయం చేయగలను. యోజనలను హుడుకలు మత్తు అర్హతను పరిశీలించడానికి https://www.india.gov.in/my-government/schemes/search గె భేటి నీడి. ఇల్లి కొన్ని ప్రసిద్ధవైనవి ఉన్నాయి:',
+      pmkisanText: 'PM-Kisan రైతులకు ఆదాయ సహాయం అందిస్తుంది. అర్హత: చిన్న మరియు మార్జినల్ రైతులు భూమి కలిగి ఉండటం. వివరాల కోసం https://www.india.gov.in/my-government/schemes/search గె భేటి నీడి.',
+      pmayText: 'PMAY సరసమైన గృహాలను అందించే లక్ష్యం కలిగి ఉంది. అర్హత: తక్కువ మరియు మధ్యస్థ ఆదాయ కుటుంబాలు. వివరాల కోసం https://www.india.gov.in/my-government/schemes/search గె భేటి నీడి.',
+      ayushmanText: 'ఆయుష్మాన్ భారత్ ఆరోగ్య కవరేజ్ అందిస్తుంది. అర్హత: బడతన రేఖ కంటే తక్కువ కుటుంబాలు. వివరాల కోసం https://www.india.gov.in/my-government/schemes/search గె భేటి నీడి.',
+      eligibilityStart: '{scheme} గె నిమ్మ అర్హతను పరిశీలించడానికి, దయచేసి మీ పేరు అందించండి.',
+      eligibilityAge: 'దయచేసి మీ వయస్సు అందించండి.',
+      eligibilityLocation: 'దయచేసి మీ స్థానం (నగరం/రాష్ట్రం) అందించండి.',
+      eligibilityIncome: 'దయచేసి మీ వార్షిక ఆదాయం (రూపాయలలో) అందించండి.',
+      eligible: 'అందించిన సమాచారం ఆధారంగా (పేరు: {name}, వయస్సు: {age}, స్థానం: {location}, ఆదాయం: {income}), మీరు {scheme} గె అర్హులైనట్టు అనిపిస్తుంది. దయచేసి అంతిమ నిర్ధారణక్కాగి అధికారిక పోర్టల్‌గె భేటి నీడి.',
+      notEligible: 'అందించిన సమాచారం ఆధారంగా, మీరు {scheme} గె అర్హులు కాకపోవచ్చు. {reason} దయచేసి అధికారిక వెబ్‌సైట్‌లో పరిశీలించి.',
+      default: 'నేను అదర బగ్గె యోచిస్తున్నానె. దయచేసి మీ రాష్ట్రం అథవా నిర్దిష్ట ఇలాఖెయన్ను సూచించి?',
+      docsTitle: 'అగత్య దాఖలాతి',
+      schemesTitle: 'ప్రభుత్వ పథకాలు',
+      checkEligibility: 'అర్హత పరిశీలించి',
+      dataPrivacy: 'డేటా గౌప్యత రక్షించబడింది',
+      officialLinks: 'అధికారిక పోర్టల్ లింక్‌గా మాత్ర'
+    },
+    kannada: {
+      welcome: 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ನಾಗರಿಕ ಸಹಾಯಕ. ನಾನು ಸರ್ಕಾರಿ ಸೇವೆಗಳನ್ನು ಹುಡುಕಲು, ಯೋಜನೆಗಳಿಗೆ ಅರ್ಹತೆಯನ್ನು ಪರಿಶೀಲಿಸಲು ಅಥವಾ ಅಗತ್ಯ ದಾಖಲೆಗಳ ಪಟ್ಟಿಯನ್ನು ಮಾಡಲು ಸಹಾಯ ಮಾಡಬಹುದು. ನಾನು ನಿಮಗೆ ಏನು ಸಹಾಯ ಮಾಡಬಹುದು?',
+      reset: 'ಸೆಷನ್ ಮರುಹೊಂದಿಸಿ. ಎಲ್ಲಾ ತಾತ್ಕಾಲಿಕ ಡೇಟಾ ತೆರವುಗೊಳಿಸಲಾಗಿದೆ. ನಾನು ಹೊಸದಾಗಿ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?',
+      passportText: 'ಹೊಸ ಪಾಸ್‌ಪೋರ್ಟ್‌ಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು, ನೀವು ಪಾಸ್‌ಪೋರ್ಟ್ ಸೇವಾ ಪೋರ್ಟಲ್‌ನಲ್ಲಿ ನೋಂದಣಿ ಮಾಡಬೇಕು. ಇಲ್ಲಿ ಕಡ್ಡಾಯ ದಾಖಲೆಗಳಿವೆ:',
+      aadhaarText: 'ಆಧಾರ್ ಕಾರ್ಡ್‌ಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು, UIDAI ವೆಬ್‌ಸೈಟ್ ಅಥವಾ ನೋಂದಣಿ ಕೇಂದ್ರಕ್ಕೆ ಭೇಟಿ ನೀಡಿ. ಇಲ್ಲಿ ಅಗತ್ಯ ದಾಖಲೆಗಳಿವೆ:',
+      panText: 'PAN ಕಾರ್ಡ್‌ಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು, NSDL ಅಥವಾ UTIITSL ಪೋರ್ಟಲ್ ಅನ್ನು ಬಳಸಿ. ಇಲ್ಲಿ ಅಗತ್ಯ ದಾಖಲೆಗಳಿವೆ:',
+      drivingText: 'ಡ್ರೈವಿಂಗ್ ಲೈಸೆನ್ಸ್ ಪಡೆಯಲು, ಪರಿವಹಣ ಸೇವಾ ಪೋರ್ಟಲ್ ಮೂಲಕ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ. ಇಲ್ಲಿ ಅಗತ್ಯ ದಾಖಲೆಗಳಿವೆ:',
+      schemeText: 'ನಾನು ಸರ್ಕಾರಿ ಯೋಜನೆಗಳಲ್ಲಿ ಸಹಾಯ ಮಾಡಬಹುದು. ಯೋಜನೆಗಳನ್ನು ಹುಡುಕಲು ಮತ್ತು ಅರ್ಹತೆಯನ್ನು ಪರಿಶೀಲಿಸಲು https://www.india.gov.in/my-government/schemes/search ಗೆ ಭೇಟಿ ನೀಡಿ. ಇಲ್ಲಿ ಕೆಲವು ಜನಪ್ರಿಯವಾದವುಗಳಿವೆ:',
+      pmkisanText: 'PM-Kisan ರೈತರಿಗೆ ಆದಾಯ ಸಹಾಯವನ್ನು ನೀಡುತ್ತದೆ. ಅರ್ಹತೆ: ಸಣ್ಣ ಮತ್ತು ಅಂಚೆ ರೈತರು ಭೂಮಿ ಹೊಂದಿರುವುದು. ವಿವರಗಳಿಗಾಗಿ https://www.india.gov.in/my-government/schemes/search ಗೆ ಭೇಟಿ ನೀಡಿ.',
+      pmayText: 'PMAY ಕೈಗೆಟುಕುವ ಮನೆಗಳನ್ನು ನೀಡುವ ಉದ್ದೇಶವನ್ನು ಹೊಂದಿದೆ. ಅರ್ಹತೆ: ಕಡಿಮೆ ಮತ್ತು ಮಧ್ಯಮ ಆದಾಯ ಕುಟುಂಬಗಳು. ವಿವರಗಳಿಗಾಗಿ https://www.india.gov.in/my-government/schemes/search ಗೆ ಭೇಟಿ ನೀಡಿ.',
+      ayushmanText: 'ಆಯುಷ್ಮಾನ್ ಭಾರತ ಆರೋಗ್ಯ ಕವರೇಜ್ ನೀಡುತ್ತದೆ. ಅರ್ಹತೆ: ಬಡತನ ರೇಖೆಯ ಕೆಳಗಿನ ಕುಟುಂಬಗಳು. ವಿವರಗಳಿಗಾಗಿ https://www.india.gov.in/my-government/schemes/search ಗೆ ಭೇಟಿ ನೀಡಿ.',
+      eligibilityStart: '{scheme} ಗೆ ನಿಮ್ಮ ಅರ್ಹತೆಯನ್ನು ಪರಿಶೀಲಿಸಲು, ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರನ್ನು ನೀಡಿ.',
+      eligibilityAge: 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಯಸ್ಸನ್ನು ನೀಡಿ.',
+      eligibilityLocation: 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸ್ಥಾನವನ್ನು (ನಗರ/ರಾಷ್ಟ್ರಂ) ನೀಡಿ.',
+      eligibilityIncome: 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಾರ್ಷಿಕ ಆದಾಯವನ್ನು (ರೂಪಾಯಿಗಳಲ್ಲಿ) ನೀಡಿ.',
+      eligible: 'ನೀಡಿದ ಮಾಹಿತಿಯ ಆಧಾರದ ಮೇಲೆ (ಹೆಸರು: {name}, ವಯಸ್ಸು: {age}, ಸ್ಥಾನ: {location}, ಆದಾಯ: {income}), ನೀವು {scheme} ಗೆ ಅರ್ಹರಾಗಿರುವಂತೆ ಕಾಣುತ್ತದೆ. ದಯವಿಟ್ಟು ಅಂತಿಮ ದೃಢೀಕರಣಕ್ಕಾಗಿ ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ಗೆ ಭೇಟಿ ನೀಡಿ.',
+      notEligible: 'ನೀಡಿದ ಮಾಹಿತಿಯ ಆಧಾರದ ಮೇಲೆ, ನೀವು {scheme} ಗೆ ಅರ್ಹರಾಗಿರದಿರಬಹುದು. {reason} ದಯವಿಟ್ಟು ಅಧಿಕೃತ ವೆಬ್‌ಸೈಟ್‌ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.',
+      default: 'ನಾನು ಅದರ ಬಗ್ಗೆ ಯೋಚಿಸುತ್ತಿದ್ದೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ರಾಷ್ಟ್ರಂ ಅಥವಾ ನಿರ್ದಿಷ್ಟ ಇಲಾಖೆಯನ್ನು ಸೂಚಿಸಿ?',
+      docsTitle: 'ಅಗತ್ಯ ದಾಖಲಾತಿ',
+      schemesTitle: 'ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು',
+      checkEligibility: 'ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ',
+      dataPrivacy: 'ಡೇಟಾ ಗೌಪ್ಯತೆ ರಕ್ಷಿಸಲಾಗಿದೆ',
+      officialLinks: 'ಅಧಿಕೃತ ಪೋರ್ಟಲ್ ಲಿಂಕ್‌ಗಳು ಮಾತ್ರ'
+    }
+  };
 
   // Requirement 4: Session Management - Auto-scroll
   useEffect(() => {
@@ -25,7 +126,7 @@ export default function GovAssistant() {
     setMessages([{ 
       id: Date.now(), 
       type: 'bot', 
-      text: 'Session reset. All temporary data cleared. How can I help you start fresh?' 
+      text: translations[language].reset 
     }]);
     setEligibilityMode({ active: false, scheme: '', step: 0, data: {} });
   };
@@ -46,11 +147,14 @@ export default function GovAssistant() {
 
   const startEligibilityCheck = (scheme) => {
     setEligibilityMode({ active: true, scheme, step: 0, data: {} });
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      type: 'bot', 
-      text: `To check your eligibility for ${scheme}, please provide your name.` 
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      { 
+        id: Date.now(), 
+        type: 'bot', 
+        text: translations[language].eligibilityStart.replace('{scheme}', scheme) 
+      }
+    ]);
   };
 
   const handleSend = (e) => {
@@ -58,12 +162,12 @@ export default function GovAssistant() {
     if (!input.trim()) return;
 
     const userMsg = { id: Date.now(), type: 'user', text: input };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
     setTimeout(() => {
-      let botResponse = { text: "I'm looking into that. Could you please specify your state or the specific department?" };
+      let botResponse = { text: translations[language].default };
 
       if (eligibilityMode.active) {
         const answer = input.trim();
@@ -74,14 +178,13 @@ export default function GovAssistant() {
 
         if (newStep < 4) {
           const questions = [
-            'Please provide your age.',
-            'Please provide your location (city/state).',
-            'Please provide your annual income (in rupees).'
+            translations[language].eligibilityAge,
+            translations[language].eligibilityLocation,
+            translations[language].eligibilityIncome
           ];
           botResponse = { text: questions[newStep - 1] };
           setEligibilityMode({ ...eligibilityMode, step: newStep, data: newData });
         } else {
-          // Check eligibility based on scheme
           const { name, age, location, income } = newData;
           let eligible = false;
           let reason = '';
@@ -105,13 +208,13 @@ export default function GovAssistant() {
               reason = 'Income exceeds the limit for Ayushman Bharat.';
             }
           } else {
-            eligible = true; // Default for other schemes
+            eligible = true;
           }
 
           botResponse = { 
             text: eligible 
-              ? `Based on the information provided (Name: ${name}, Age: ${age}, Location: ${location}, Income: ${income}), you appear eligible for ${eligibilityMode.scheme}. Please visit the official portal for final confirmation.` 
-              : `Based on the information provided, you may not be eligible for ${eligibilityMode.scheme}. ${reason} Please check the official website for details.` 
+              ? translations[language].eligible.replace('{name}', name).replace('{age}', age).replace('{location}', location).replace('{income}', income).replace('{scheme}', eligibilityMode.scheme)
+              : translations[language].notEligible.replace('{scheme}', eligibilityMode.scheme).replace('{reason}', reason)
           };
           setEligibilityMode({ active: false, scheme: '', step: 0, data: {} });
         }
@@ -119,7 +222,7 @@ export default function GovAssistant() {
         const query = input.toLowerCase();
         if (query.includes('passport')) {
           botResponse = {
-            text: "To apply for a fresh Passport, you must register at the Passport Seva Portal. Here are the mandatory documents:",
+            text: translations[language].passportText,
             docs: [
               { name: "Aadhaar Card", status: "Mandatory", desc: "Proof of Identity & Address", link: "https://uidai.gov.in", upload: true },
               { name: "Birth Certificate", status: "Mandatory", desc: "Proof of Date of Birth", link: "#", upload: true },
@@ -128,7 +231,7 @@ export default function GovAssistant() {
           };
         } else if (query.includes('aadhaar')) {
           botResponse = {
-            text: "To apply for an Aadhaar card, visit the UIDAI website or an enrolment center. Here are the required documents:",
+            text: translations[language].aadhaarText,
             docs: [
               { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Birth Certificate, PAN Card", link: "https://uidai.gov.in", upload: true },
               { name: "Proof of Address", status: "Mandatory", desc: "e.g., Electricity Bill, Bank Statement", link: "https://uidai.gov.in", upload: true },
@@ -137,7 +240,7 @@ export default function GovAssistant() {
           };
         } else if (query.includes('pan')) {
           botResponse = {
-            text: "To apply for a PAN card, use the NSDL or UTIITSL portal. Here are the required documents:",
+            text: translations[language].panText,
             docs: [
               { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Aadhaar Card, Passport", link: "https://www.onlineservices.nsdl.com", upload: true },
               { name: "Proof of Address", status: "Mandatory", desc: "e.g., Aadhaar Card, Electricity Bill", link: "https://www.onlineservices.nsdl.com", upload: true },
@@ -146,7 +249,7 @@ export default function GovAssistant() {
           };
         } else if (query.includes('driving') || query.includes('license')) {
           botResponse = {
-            text: "To get a driving license, apply through the Parivahan Sewa portal. Here are the required documents:",
+            text: translations[language].drivingText,
             docs: [
               { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Aadhaar Card, Passport", link: "https://parivahan.gov.in", upload: true },
               { name: "Proof of Address", status: "Mandatory", desc: "e.g., Aadhaar Card, Electricity Bill", link: "https://parivahan.gov.in", upload: true },
@@ -156,7 +259,7 @@ export default function GovAssistant() {
           };
         } else if (query.includes('scheme') || query.includes('eligible')) {
           botResponse = {
-            text: "I can help with government schemes. Visit https://www.india.gov.in/my-government/schemes/search to search for schemes and check eligibility. Here are some popular ones:",
+            text: translations[language].schemeText,
             schemes: [
               { name: "PM-Kisan", desc: "Financial assistance to farmers", link: "https://www.india.gov.in/my-government/schemes/search" },
               { name: "PMAY", desc: "Pradhan Mantri Awas Yojana for housing", link: "https://www.india.gov.in/my-government/schemes/search" },
@@ -166,23 +269,23 @@ export default function GovAssistant() {
           };
         } else if (query.includes('pm-kisan')) {
           botResponse = {
-            text: "PM-Kisan provides income support to farmers. Eligibility: Small and marginal farmers with landholding. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            text: translations[language].pmkisanText,
             link: "https://www.india.gov.in/my-government/schemes/search"
           };
         } else if (query.includes('pmay')) {
           botResponse = {
-            text: "PMAY aims to provide affordable housing. Eligibility: Low and middle-income families. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            text: translations[language].pmayText,
             link: "https://www.india.gov.in/my-government/schemes/search"
           };
         } else if (query.includes('ayushman')) {
           botResponse = {
-            text: "Ayushman Bharat provides health coverage. Eligibility: Families below poverty line. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            text: translations[language].ayushmanText,
             link: "https://www.india.gov.in/my-government/schemes/search"
           };
         }
       }
 
-      setMessages(prev => [...prev, { id: Date.now() + 1, type: 'bot', ...botResponse }]);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, type: 'bot', ...botResponse }]);
       setIsTyping(false);
     }, 1000);
   };
@@ -204,12 +307,24 @@ export default function GovAssistant() {
             </div>
           </div>
         </div>
-        <button 
-          onClick={resetSession}
-          className="flex items-center gap-2 text-xs font-bold bg-white/10 hover:bg-white/25 px-4 py-2 rounded-full border border-white/20 transition-all active:scale-95"
-        >
-          <RotateCcw size={14} /> <span className="hidden sm:inline">RESET SESSION</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="bg-white/10 text-white border border-white/20 rounded px-2 py-1 text-sm"
+          >
+            <option value="english">English</option>
+            <option value="hindi">हिंदी</option>
+            <option value="telugu">తెలుగు</option>
+            <option value="kannada">ಕನ್ನಡ</option>
+          </select>
+          <button 
+            onClick={resetSession}
+            className="flex items-center gap-2 text-xs font-bold bg-white/10 hover:bg-white/25 px-4 py-2 rounded-full border border-white/20 transition-all active:scale-95"
+          >
+            <RotateCcw size={14} /> <span className="hidden sm:inline">RESET SESSION</span>
+          </button>
+        </div>
       </header>
 
       {/* CHAT AREA: Responsive & Scannable */}
@@ -232,7 +347,7 @@ export default function GovAssistant() {
               {/* Requirement 3: Structured Document Lists */}
               {msg.docs && (
                 <div className="mt-4 space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">Required Documentation</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">{translations[language].docsTitle}</p>
                   {msg.docs.map((doc, i) => (
                     <div key={i} className="group flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-all">
                       <div className="pr-4">
@@ -265,7 +380,7 @@ export default function GovAssistant() {
               {/* Government Schemes List */}
               {msg.schemes && (
                 <div className="mt-4 space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">Government Schemes</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">{translations[language].schemesTitle}</p>
                   {msg.schemes.map((scheme, i) => (
                     <div key={i} className="group flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-all">
                       <div className="pr-4">
@@ -289,7 +404,7 @@ export default function GovAssistant() {
               {msg.link && (
                 <div className="mt-4">
                   <a href={msg.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium">
-                    <ExternalLink size={16} /> Check Eligibility
+                    <ExternalLink size={16} /> {translations[language].checkEligibility}
                   </a>
                 </div>
               )}
@@ -360,9 +475,9 @@ export default function GovAssistant() {
           </button>
         </form>
         <div className="mt-4 flex justify-center items-center gap-6 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
-          <span>Data Privacy Protected</span>
+          <span>{translations[language].dataPrivacy}</span>
           <span className="h-1 w-1 bg-slate-300 rounded-full"></span>
-          <span>Official Portal Links Only</span>
+          <span>{translations[language].officialLinks}</span>
         </div>
       </footer>
     </div>
