@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 // Note: Ensure 'lucide-react' is installed: npm install lucide-react
-import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot } from 'lucide-react';
+import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot, Upload, CheckCircle } from 'lucide-react';
 
 export default function GovAssistant() {
   const [messages, setMessages] = useState([
@@ -12,6 +12,7 @@ export default function GovAssistant() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [eligibilityMode, setEligibilityMode] = useState({ active: false, scheme: '', step: 0, data: {} });
   const scrollRef = useRef(null);
 
   // Requirement 4: Session Management - Auto-scroll
@@ -26,6 +27,30 @@ export default function GovAssistant() {
       type: 'bot', 
       text: 'Session reset. All temporary data cleared. How can I help you start fresh?' 
     }]);
+    setEligibilityMode({ active: false, scheme: '', step: 0, data: {} });
+  };
+
+  const handleQuickAction = (service) => {
+    const queries = {
+      aadhaar: 'How to apply for Aadhaar card?',
+      passport: 'How to apply for passport?',
+      pan: 'How to apply for PAN card?',
+      driving: 'How to get a driving license?',
+      pmkisan: 'Tell me about PM-Kisan scheme',
+      pmay: 'Tell me about PMAY scheme',
+      ayushman: 'Tell me about Ayushman Bharat scheme'
+    };
+    setInput(queries[service]);
+    handleSend({ preventDefault: () => {} });
+  };
+
+  const startEligibilityCheck = (scheme) => {
+    setEligibilityMode({ active: true, scheme, step: 0, data: {} });
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      type: 'bot', 
+      text: `To check your eligibility for ${scheme}, please provide your name.` 
+    }]);
   };
 
   const handleSend = (e) => {
@@ -37,24 +62,124 @@ export default function GovAssistant() {
     setInput('');
     setIsTyping(true);
 
-    // Simulated Backend Logic (Requirement 1, 2, & 3)
     setTimeout(() => {
       let botResponse = { text: "I'm looking into that. Could you please specify your state or the specific department?" };
-      
-      const query = input.toLowerCase();
-      if (query.includes('passport')) {
-        botResponse = {
-          text: "To apply for a fresh Passport, you must register at the Passport Seva Portal. Here are the mandatory documents:",
-          docs: [
-            { name: "Aadhaar Card", status: "Mandatory", desc: "Proof of Identity & Address", link: "https://uidai.gov.in" },
-            { name: "Birth Certificate", status: "Mandatory", desc: "Proof of Date of Birth", link: "#" },
-            { name: "Electricity Bill", status: "Conditional", desc: "Required if Aadhaar address is old", link: "#" }
-          ]
-        };
-      } else if (query.includes('scheme') || query.includes('eligible')) {
-        botResponse = {
-          text: "I can help check eligibility. Are you asking for: 1. PM-Kisan (Farmers), 2. PMAY (Housing), or 3. Student Scholarships?",
-        };
+
+      if (eligibilityMode.active) {
+        const answer = input.trim();
+        const newData = { ...eligibilityMode.data };
+        const steps = ['name', 'age', 'location', 'income'];
+        newData[steps[eligibilityMode.step]] = answer;
+        const newStep = eligibilityMode.step + 1;
+
+        if (newStep < 4) {
+          const questions = [
+            'Please provide your age.',
+            'Please provide your location (city/state).',
+            'Please provide your annual income (in rupees).'
+          ];
+          botResponse = { text: questions[newStep - 1] };
+          setEligibilityMode({ ...eligibilityMode, step: newStep, data: newData });
+        } else {
+          // Check eligibility based on scheme
+          const { name, age, location, income } = newData;
+          let eligible = false;
+          let reason = '';
+
+          if (eligibilityMode.scheme === 'PM-Kisan') {
+            if (parseInt(age) >= 18 && parseInt(income) < 600000 && location.toLowerCase().includes('rural')) {
+              eligible = true;
+            } else {
+              reason = 'You may not qualify if you are under 18, have high income, or live in urban areas.';
+            }
+          } else if (eligibilityMode.scheme === 'PMAY') {
+            if (parseInt(income) < 300000) {
+              eligible = true;
+            } else {
+              reason = 'Income exceeds the limit for PMAY.';
+            }
+          } else if (eligibilityMode.scheme === 'Ayushman Bharat') {
+            if (parseInt(income) < 500000) {
+              eligible = true;
+            } else {
+              reason = 'Income exceeds the limit for Ayushman Bharat.';
+            }
+          } else {
+            eligible = true; // Default for other schemes
+          }
+
+          botResponse = { 
+            text: eligible 
+              ? `Based on the information provided (Name: ${name}, Age: ${age}, Location: ${location}, Income: ${income}), you appear eligible for ${eligibilityMode.scheme}. Please visit the official portal for final confirmation.` 
+              : `Based on the information provided, you may not be eligible for ${eligibilityMode.scheme}. ${reason} Please check the official website for details.` 
+          };
+          setEligibilityMode({ active: false, scheme: '', step: 0, data: {} });
+        }
+      } else {
+        const query = input.toLowerCase();
+        if (query.includes('passport')) {
+          botResponse = {
+            text: "To apply for a fresh Passport, you must register at the Passport Seva Portal. Here are the mandatory documents:",
+            docs: [
+              { name: "Aadhaar Card", status: "Mandatory", desc: "Proof of Identity & Address", link: "https://uidai.gov.in", upload: true },
+              { name: "Birth Certificate", status: "Mandatory", desc: "Proof of Date of Birth", link: "#", upload: true },
+              { name: "Electricity Bill", status: "Conditional", desc: "Required if Aadhaar address is old", link: "#", upload: true }
+            ]
+          };
+        } else if (query.includes('aadhaar')) {
+          botResponse = {
+            text: "To apply for an Aadhaar card, visit the UIDAI website or an enrolment center. Here are the required documents:",
+            docs: [
+              { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Birth Certificate, PAN Card", link: "https://uidai.gov.in", upload: true },
+              { name: "Proof of Address", status: "Mandatory", desc: "e.g., Electricity Bill, Bank Statement", link: "https://uidai.gov.in", upload: true },
+              { name: "Photograph", status: "Mandatory", desc: "Recent passport-size photo", link: "#", upload: true }
+            ]
+          };
+        } else if (query.includes('pan')) {
+          botResponse = {
+            text: "To apply for a PAN card, use the NSDL or UTIITSL portal. Here are the required documents:",
+            docs: [
+              { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Aadhaar Card, Passport", link: "https://www.onlineservices.nsdl.com", upload: true },
+              { name: "Proof of Address", status: "Mandatory", desc: "e.g., Aadhaar Card, Electricity Bill", link: "https://www.onlineservices.nsdl.com", upload: true },
+              { name: "Date of Birth Proof", status: "Mandatory", desc: "e.g., Birth Certificate, School Leaving Certificate", link: "#", upload: true }
+            ]
+          };
+        } else if (query.includes('driving') || query.includes('license')) {
+          botResponse = {
+            text: "To get a driving license, apply through the Parivahan Sewa portal. Here are the required documents:",
+            docs: [
+              { name: "Proof of Identity", status: "Mandatory", desc: "e.g., Aadhaar Card, Passport", link: "https://parivahan.gov.in", upload: true },
+              { name: "Proof of Address", status: "Mandatory", desc: "e.g., Aadhaar Card, Electricity Bill", link: "https://parivahan.gov.in", upload: true },
+              { name: "Medical Certificate", status: "Mandatory", desc: "From a registered medical practitioner", link: "#", upload: true },
+              { name: "Learner's License", status: "Mandatory", desc: "If applying for permanent license", link: "#", upload: true }
+            ]
+          };
+        } else if (query.includes('scheme') || query.includes('eligible')) {
+          botResponse = {
+            text: "I can help with government schemes. Visit https://www.india.gov.in/my-government/schemes/search to search for schemes and check eligibility. Here are some popular ones:",
+            schemes: [
+              { name: "PM-Kisan", desc: "Financial assistance to farmers", link: "https://www.india.gov.in/my-government/schemes/search" },
+              { name: "PMAY", desc: "Pradhan Mantri Awas Yojana for housing", link: "https://www.india.gov.in/my-government/schemes/search" },
+              { name: "Ayushman Bharat", desc: "Health insurance scheme", link: "https://www.india.gov.in/my-government/schemes/search" },
+              { name: "Swachh Bharat Mission", desc: "Clean India initiative", link: "https://www.india.gov.in/my-government/schemes/search" }
+            ]
+          };
+        } else if (query.includes('pm-kisan')) {
+          botResponse = {
+            text: "PM-Kisan provides income support to farmers. Eligibility: Small and marginal farmers with landholding. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            link: "https://www.india.gov.in/my-government/schemes/search"
+          };
+        } else if (query.includes('pmay')) {
+          botResponse = {
+            text: "PMAY aims to provide affordable housing. Eligibility: Low and middle-income families. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            link: "https://www.india.gov.in/my-government/schemes/search"
+          };
+        } else if (query.includes('ayushman')) {
+          botResponse = {
+            text: "Ayushman Bharat provides health coverage. Eligibility: Families below poverty line. Visit https://www.india.gov.in/my-government/schemes/search for details.",
+            link: "https://www.india.gov.in/my-government/schemes/search"
+          };
+        }
       }
 
       setMessages(prev => [...prev, { id: Date.now() + 1, type: 'bot', ...botResponse }]);
@@ -119,11 +244,53 @@ export default function GovAssistant() {
                         </div>
                         <p className="text-[11px] text-slate-500 mt-0.5">{doc.desc}</p>
                       </div>
-                      <a href={doc.link} target="_blank" rel="noreferrer" className="shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors">
-                        <ExternalLink size={16} />
-                      </a>
+                      <div className="flex gap-2">
+                        {doc.upload && (
+                          <label className="shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer">
+                            <Upload size={16} />
+                            <input type="file" accept="image/*" className="hidden" />
+                          </label>
+                        )}
+                        {doc.link && doc.link !== "#" && (
+                          <a href={doc.link} target="_blank" rel="noreferrer" className="shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors">
+                            <ExternalLink size={16} />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Government Schemes List */}
+              {msg.schemes && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1">Government Schemes</p>
+                  {msg.schemes.map((scheme, i) => (
+                    <div key={i} className="group flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-all">
+                      <div className="pr-4">
+                        <span className="text-xs font-bold text-slate-900">{scheme.name}</span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{scheme.desc}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => startEligibilityCheck(scheme.name)} className="shrink-0 p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors">
+                          <CheckCircle size={16} />
+                        </button>
+                        <a href={scheme.link} target="_blank" rel="noreferrer" className="shrink-0 p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors">
+                          <ExternalLink size={16} />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Single Link for Schemes */}
+              {msg.link && (
+                <div className="mt-4">
+                  <a href={msg.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium">
+                    <ExternalLink size={16} /> Check Eligibility
+                  </a>
                 </div>
               )}
             </div>
@@ -146,6 +313,30 @@ export default function GovAssistant() {
 
       {/* FOOTER: Accessible Input Area */}
       <footer className="p-4 md:p-6 bg-white border-t border-slate-200 shrink-0">
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap gap-2 mb-4 justify-center">
+          <button onClick={() => handleQuickAction('aadhaar')} className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            Aadhaar Card
+          </button>
+          <button onClick={() => handleQuickAction('passport')} className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            Passport
+          </button>
+          <button onClick={() => handleQuickAction('pan')} className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            PAN Card
+          </button>
+          <button onClick={() => handleQuickAction('driving')} className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            Driving License
+          </button>
+          <button onClick={() => handleQuickAction('pmkisan')} className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            PM-Kisan
+          </button>
+          <button onClick={() => handleQuickAction('pmay')} className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            PMAY
+          </button>
+          <button onClick={() => handleQuickAction('ayushman')} className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-full text-sm font-medium transition-colors">
+            Ayushman Bharat
+          </button>
+        </div>
         <form onSubmit={handleSend} className="flex gap-3 max-w-3xl mx-auto">
           <div className="relative flex-1">
             <input 
