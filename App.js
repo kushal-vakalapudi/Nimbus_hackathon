@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-// Note: Ensure 'lucide-react' is installed: npm install lucide-react
-import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot, Upload, CheckCircle } from 'lucide-react';
+import { Send, RotateCcw, Globe, ExternalLink, ShieldCheck, User, Bot } from 'lucide-react';
 
+// The rest of the code I gave you starts here...
 export default function GovAssistant() {
   const [messages, setMessages] = useState([
     { 
